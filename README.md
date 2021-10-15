@@ -13,7 +13,8 @@ weather.coordinates = .init(latitude: 56.046411, longitude: 12.694454)
 
 ## TODO
 
-- [_] add list of services
-- [_] code-documentation
-- [_] write tests
-- [_] complete package documentation
+- [] add list of services
+- [] code-documentation
+- [] make SMHIObservations WeatherService compatible
+- [] write tests
+- [] complete package documentation
