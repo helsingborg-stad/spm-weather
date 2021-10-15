@@ -120,5 +120,77 @@ public class Weather : ObservableObject {
               longitude: 12.7416203)
     ]
     public static let previewInstance:Weather = Weather(service: nil, previewData: true)
+    
+    /// Get the heat index adusted temperature
+    /// - Parameters:
+    ///   - t: temperature
+    ///   - r: humidity
+    /// - Returns: heat index adjusted temperature
+    public static func heatIndexAdjustedTemperature(temperature t:Double, humidity r:Double) -> Double {
+        /// https://en.wikipedia.org/wiki/Heat_index
+        if t < 27 || r < 40 {
+            return t
+        }
+        let c1:Double = -8.78469475556
+        let c2:Double = 1.61139411
+        let c3:Double = 2.33854883889
+        let c4:Double = -0.14611605
+        let c5:Double = -0.012308094
+        let c6:Double = -0.0164248277778
+        let c7:Double = 0.002211732
+        let c8:Double = 0.00072546
+        let c9:Double = -0.000003582
+        return c1 + (c2 * t) + (c3 * r) + (c4 * t * r + c5 * pow(t,2)) + (c6 * pow(r,2)) + (c7 * pow(t,2) * r) + (c8 * t * pow(r,2)) + (c9 * pow(t,2) * pow(r,2))
+    }
+
+    /// Get the effective temperature, ie windchill temperature
+    /// - Parameters:
+    ///   - t: temperature in celcius
+    ///   - v: wind speed in meters per second
+    /// - Returns: wind chill temperature
+    /// - Note
+    /// Information found at https://www.smhi.se/kunskapsbanken/meteorologi/vindens-kyleffekt-1.259
+    public static func windChillAdjustedTemperature(temperature t:Double, wind v:Double) -> Double {
+        if t > 10 || t < -40 || v < 2 || v > 35{
+            return t
+        }
+        return 13.12 + 0.6215 * t - 13.956 * pow(v, 0.16) + 0.48669 * t * pow(v, 0.16)
+    }
+
+
+    /// Calculates the dew point
+    /// - Parameters:
+    ///   - humidity: relative humidity (1 to 100)
+    ///   - temperature: temperature in celcius
+    /// - Returns: the dew point adjusted temperature
+    /// - Note:
+    /// Information found at https://github.com/malexer/meteocalc/blob/master/meteocalc/dewpoint.py
+    public static func dewPointAdjustedTemperature(humidity:Double, temperature:Double) -> Double {
+        let bpos = 17.368
+        let cpos = 238.88
+        let bneg = 17.966
+        let cneg = 247.15
+
+        let b = temperature > 0 ? bpos : bneg
+        let c = temperature > 0 ? cpos : cneg
+
+        let pa = humidity / 100 * pow(M_E, b * temperature / (c + temperature))
+
+        return c * log(pa) / (b - log(pa))
+    }
+
+    //public func calculateDewPointAlternate1(humidity:Double,temperature:Double) -> Double {
+    //    /// https://stackoverflow.com/questions/27288021/formula-to-calculate-dew-point-from-temperature-and-humidity
+    //    return (temperature - (14.55 + 0.114 * temperature) * (1 - (0.01 * humidity)) - pow(((2.5 + 0.007 * temperature) * (1 - (0.01 * humidity))),3) - (15.9 + 0.117 * temperature) * pow((1 - (0.01 * humidity)), 14))
+    //}
+    //
+    //public func calculateDewPointAlternate2(humidity:Double,temperature:Double) -> Double {
+    //    /// https://gist.github.com/sourceperl/45587ea99ff123745428
+    //    let A = 17.27
+    //    let B = 237.7
+    //    let alpha = ((A * temperature) / (B + temperature)) + log(humidity/100.0)
+    //    return (B * alpha) / (A - alpha)
+    //}
+
 }
 

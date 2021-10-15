@@ -7,30 +7,6 @@
 
 import Foundation
 
-fileprivate func getHeatIndex(temperature t:Double,humidity r:Double) -> Double {
-    /// https://en.wikipedia.org/wiki/Heat_index
-    if t < 27 || r < 40 {
-        return t
-    }
-    let c1:Double = -8.78469475556
-    let c2:Double = 1.61139411
-    let c3:Double = 2.33854883889
-    let c4:Double = -0.14611605
-    let c5:Double = -0.012308094
-    let c6:Double = -0.0164248277778
-    let c7:Double = 0.002211732
-    let c8:Double = 0.00072546
-    let c9:Double = -0.000003582
-    return c1 + (c2 * t) + (c3 * r) + (c4 * t * r + c5 * pow(t,2)) + (c6 * pow(r,2)) + (c7 * pow(t,2) * r) + (c8 * t * pow(r,2)) + (c9 * pow(t,2) * pow(r,2))
-}
-fileprivate func getEffectiveTemperature(temperature t:Double,wind v:Double) -> Double {
-    /// https://www.smhi.se/kunskapsbanken/meteorologi/vindens-kyleffekt-1.259
-    //Observera att formeln inte ska användas för vindhastigheter under 2 m/s eller över 35 m/s för temperaturer över +10°C eller under -40°C.
-    if t > 10 || t < -40 || v < 2 || v > 35{
-        return t
-    }
-    return 13.12 + 0.6215 * t - 13.956 * pow(v, 0.16) + 0.48669 * t * pow(v, 0.16)
-}
 public enum SMHIWeatherDataMissingError : Error {
     case airPressure
     case airTemperature
@@ -130,19 +106,19 @@ public struct SMHIWeather : Codable {
             guard let v = parameter(.windSpeed)?.values.first,let r = parameter(.relativeHumidity)?.values.first else {
                 return t
             }
-            return getEffectiveTemperature(temperature: getHeatIndex(temperature: t, humidity: r), wind: v)
+            return Weather.windChillAdjustedTemperature(temperature: Weather.heatIndexAdjustedTemperature(temperature: t, humidity: r), wind: v)
         }
         public var heatIndex:Double? {
             guard let t = parameter(.airTemperature)?.value as? Double, let r = parameter(.relativeHumidity)?.values.first else {
                 return nil
             }
-            return getHeatIndex(temperature: t, humidity: r)
+            return Weather.heatIndexAdjustedTemperature(temperature: t, humidity: r)
         }
         public var effectiveTemperature:Double? {
             guard let t = parameter(.airTemperature)?.value as? Double,let v = parameter(.windSpeed)?.values.first else {
                 return nil
             }
-            return getEffectiveTemperature(temperature: t, wind: v)
+            return Weather.windChillAdjustedTemperature(temperature: t, wind: v)
         }
         public func parameter(_ parameter:Parameter.Name) -> Parameter? {
             parameters.first { param in param.name == parameter }
