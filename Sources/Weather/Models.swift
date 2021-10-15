@@ -126,6 +126,7 @@ public struct WeatherData : Equatable,Identifiable {
     public var id:String {
         "weather-at-\(dateTimeRepresentation)"
     }
+    public let isForcast:Bool
     public let dateTimeRepresentation:Date
     public let airPressure:Double
     public let airTemperature:Double
@@ -156,6 +157,8 @@ public struct WeatherData : Equatable,Identifiable {
     public let latitude:Double
     public let longitude:Double
     public init(
+        isForcast:Bool = true,
+        
         dateTimeRepresentation:Date,
         airPressure:Double,
         airTemperature:Double,
@@ -185,57 +188,35 @@ public struct WeatherData : Equatable,Identifiable {
         symbol:WeatherSymbol,
         latitude: Double,
         longitude: Double) {
-        self.dateTimeRepresentation = dateTimeRepresentation
-        self.airPressure = airPressure
-        self.airTemperature = airTemperature
-        self.airTemperatureFeelsLike = airTemperatureFeelsLike
-        self.horizontalVisibility = horizontalVisibility
-        
-        self.windDirection = windDirection
-        self.windSpeed = windSpeed
-        self.windGustSpeed = windGustSpeed
-        
-        self.relativeHumidity = relativeHumidity
-        self.thunderProbability = thunderProbability
-        
-        self.totalCloudCover = totalCloudCover
-        self.lowLevelCloudCover = lowLevelCloudCover
-        self.mediumLevelCloudCover = mediumLevelCloudCover
-        self.highLevelCloudCover = highLevelCloudCover
-        
-        self.minPrecipitation = minPrecipitation
-        self.maxPrecipitation = maxPrecipitation
-        self.frozenPrecipitationPercentage = frozenPrecipitationPercentage
-        
-        self.meanPrecipitationIntensity = meanPrecipitationIntensity
-        self.medianPrecipitationIntensity = medianPrecipitationIntensity
-        
-        self.precipitationCategory = precipitationCategory
-        self.symbol = symbol
-        self.latitude = latitude
-        self.longitude = longitude
-    }
-}
-enum WParameter {
-    case airPressure
-    case airTemperature
-    case airTemperatureFeelsLike
-    case horizontalVisibility
-    case windDirection
-    case windSpeed
-    case windGustSpeed
-    case relativeHumidity
-    case thunderProbability
-    case totalCloudCover
-    case lowLevelCloudCover
-    case mediumLevelCloudCover
-    case highLevelCloudCover
-    case minPrecipitation
-    case maxPrecipitation
-    case frozenPrecipitationPercentage
-    case meanPrecipitationIntensity
-    case medianPrecipitationIntensity
-}
-struct DataPoint {
-    var name:WParameter
+            self.isForcast = isForcast
+            self.dateTimeRepresentation = dateTimeRepresentation
+            self.airPressure = airPressure
+            self.airTemperature = airTemperature
+            self.airTemperatureFeelsLike = airTemperatureFeelsLike
+            self.horizontalVisibility = horizontalVisibility
+            
+            self.windDirection = windDirection
+            self.windSpeed = windSpeed
+            self.windGustSpeed = windGustSpeed
+            
+            self.relativeHumidity = relativeHumidity
+            self.thunderProbability = thunderProbability
+            
+            self.totalCloudCover = totalCloudCover
+            self.lowLevelCloudCover = lowLevelCloudCover
+            self.mediumLevelCloudCover = mediumLevelCloudCover
+            self.highLevelCloudCover = highLevelCloudCover
+            
+            self.minPrecipitation = minPrecipitation
+            self.maxPrecipitation = maxPrecipitation
+            self.frozenPrecipitationPercentage = frozenPrecipitationPercentage
+            
+            self.meanPrecipitationIntensity = meanPrecipitationIntensity
+            self.medianPrecipitationIntensity = medianPrecipitationIntensity
+            
+            self.precipitationCategory = precipitationCategory
+            self.symbol = symbol
+            self.latitude = latitude
+            self.longitude = longitude
+        }
 }
