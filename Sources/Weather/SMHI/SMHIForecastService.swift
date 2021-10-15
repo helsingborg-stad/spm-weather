@@ -1,11 +1,40 @@
-//
-//  File.swift
-//  
-//
-//  Created by Tomas Green on 2021-06-11.
-//
-
 import Foundation
+import Combine
+import CoreLocation
+
+public class SMHIForecastService : WeatherService {
+    public init () {
+        
+    }
+    func url(_ lat:Double,_ lon:Double) -> URL? {
+        return URL(string: "https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/\(String(format: "%.6f", lon))/lat/\(String(format: "%.6f", lat))/data.json")
+    }
+    public func fetch(using coordinates:Weather.Coordinates) -> AnyPublisher<[WeatherData],Error> {
+        return fetchPublisher(latitude: coordinates.latitude, longitude: coordinates.longitude)
+            .tryMap({ w in
+                var arr = [WeatherData]()
+                for t in w.timeSeries {
+                    let d = try t.weatherDataRepresentation(using: coordinates)
+                    arr.append(d)
+                }
+                return arr
+            })
+            .eraseToAnyPublisher()
+    }
+    public func fetchPublisher(latitude:Double, longitude:Double) -> AnyPublisher<SMHIForecast,Error> {
+        let decoder = JSONDecoder()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        decoder.dateDecodingStrategy = .formatted(formatter)
+        guard let url = self.url(latitude,longitude) else {
+            return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+        }
+        return URLSession.shared.dataTaskPublisher(for: url)
+            .map {$0.data}
+            .decode(type: SMHIForecast.self, decoder: decoder)
+            .eraseToAnyPublisher()
+    }
+}
 
 public enum SMHIWeatherDataMissingError : Error {
     case airPressure
@@ -28,7 +57,7 @@ public enum SMHIWeatherDataMissingError : Error {
     case medianPrecipitationIntensity
     case weatherSymbol
 }
-public struct SMHIWeather : Codable {
+public struct SMHIForecast : Codable {
     public struct TimeSeries : Codable {
         public let validTime:Date
         public let parameters:[Parameter]
