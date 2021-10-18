@@ -56,7 +56,7 @@ public class Weather : ObservableObject {
             dataSubject.send(Self.previewData)
             return
         }
-        if force == false && automatedFetcher.shouldFetch && dataSubject.value.isEmpty == false {
+        if force == false && automatedFetcher.shouldFetch == false && dataSubject.value.isEmpty == false {
             return
         }
         guard let coordinates = coordinates else {
