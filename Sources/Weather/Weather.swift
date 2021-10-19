@@ -3,47 +3,75 @@ import Foundation
 import CoreLocation
 import AutomatedFetcher
 
+/// Weather service protocol. Used by service providers to comply with the Weather service requirements
 public protocol WeatherService {
     func fetch(using coordinates:Weather.Coordinates) -> AnyPublisher<[WeatherData],Error>
 }
+/// Weather privides a common interface that supplies weather data form any service implementing the `WeatherService` protocol.
 public class Weather : ObservableObject {
+    /// Coordinate object used when fetching data
     public struct Coordinates: Codable, Equatable, Hashable {
+        /// Coordinate latitude
         public let latitude:Double
+        /// Coordinate longitude
         public let longitude:Double
+        /// Initializes a new coordinate object
+        /// - Parameters:
+        ///   - latitude: Coordinate latitude
+        ///   - longitude: Coordinate longitude
         public init(latitude:Double, longitude:Double) {
             self.latitude = latitude
             self.longitude = longitude
         }
     }
-    private var automatedFetcher:AutomatedFetcher<[WeatherData]>
-    private var dataSubject = CurrentValueSubject<[WeatherData],Never>([])
-    public let latest:AnyPublisher<[WeatherData],Never>
+    /// Automated fetcher instance
+    private var automatedFetcher:AutomatedFetcher<[WeatherData]?>
+    /// Data subject
+    private var dataSubject = CurrentValueSubject<[WeatherData]?,Never>(nil)
+    /// Latest data publisher.
+    public let latest:AnyPublisher<[WeatherData]?,Never>
+    /// Current service. New values triggers a fetch if fetchAutomatically is active
     public var service:WeatherService? {
         didSet {
+            if service == nil {
+                return
+            }
             if fetchAutomatically {
                 self.fetch()
             }
         }
     }
+    /// Cancellable storage
     private var publishers = Set<AnyCancellable>()
+    /// Current coordinates. New values triggers a fetch if fetchAutomatically is active
     public var coordinates:Coordinates? {
         didSet {
             if oldValue != coordinates {
-                fetch()
+                if fetchAutomatically {
+                    fetch()
+                }
             }
         }
     }
+    /// Indicates whether or not the automatic fetch is active
     @Published public var fetchAutomatically:Bool {
         didSet { automatedFetcher.isOn = fetchAutomatically }
     }
+    /// Indicates whether or not preview data is being used
     @Published public private(set) var previewData:Bool = false
+    /// Instantiates a new weather object
+    /// - Parameters:
+    ///   - service: weather service to use
+    ///   - coordinates: coordinates to use when fetching data
+    ///   - fetchAutomatically: Indicates whether or not the automatic fetch is active
+    ///   - previewData: Indicates whether or not preview data is being used
     public init(service:WeatherService?, coordinates:Coordinates? = nil, fetchAutomatically:Bool = true, previewData:Bool = false) {
         self.previewData = previewData
         self.fetchAutomatically = fetchAutomatically
         self.coordinates = coordinates
         self.latest = dataSubject.eraseToAnyPublisher()
         self.service = service
-        self.automatedFetcher = AutomatedFetcher<[WeatherData]>(dataSubject, isOn: fetchAutomatically)
+        self.automatedFetcher = AutomatedFetcher<[WeatherData]?>(dataSubject, isOn: fetchAutomatically)
         automatedFetcher.triggered.sink { [weak self] in
             self?.fetch()
         }.store(in: &publishers)
@@ -51,12 +79,15 @@ public class Weather : ObservableObject {
             fetch()
         }
     }
+    /// Fetch data from service
+    /// - Parameter force: force overrides the automatic fetcher and retrieves data regarldess.
+    /// - Note: Will not fetch if missing coordinates or service
     public func fetch(force:Bool = false) {
         if previewData {
             dataSubject.send(Self.previewData)
             return
         }
-        if force == false && automatedFetcher.shouldFetch == false && dataSubject.value.isEmpty == false {
+        if force == false && automatedFetcher.shouldFetch == false && dataSubject.value == nil {
             return
         }
         guard let coordinates = coordinates else {
@@ -83,17 +114,29 @@ public class Weather : ObservableObject {
             publishers.insert(p)
         }
     }
+    /// Weather data closest in time relative to the data parameter. This publisher will trigger again when recieveing new values underlying data (i.e `latest` publisher)
+    /// - Parameter date: the date to be used for comparison
+    /// - Returns: a value publisher, will result a nil value if no weather data has been retrieved.
     public func closest(to date:Date? = nil) -> AnyPublisher<WeatherData?,Never> {
         return dataSubject.map { data in
             let date = date ?? Date()
-            return data.sorted { w1, w2 in
+            return data?.sorted { w1, w2 in
                 abs(w1.dateTimeRepresentation.timeIntervalSince(date)) < abs(w2.dateTimeRepresentation.timeIntervalSince(date))
             }.first
         }.eraseToAnyPublisher()
     }
-    public func betweenDates(from: Date, to:Date) -> [WeatherData] {
-        return dataSubject.value.filter { $0.dateTimeRepresentation >= from && $0.dateTimeRepresentation <= to }
+    
+    /// All weather data between the two dates. This publisher will trigger again when recieveing new values underlying data (i.e `latest` publisher)
+    /// - Parameters:
+    ///   - from: from data
+    ///   - to: to date
+    /// - Returns: a value publisher, will result in a nil value if no weather data has been retrieved.
+    public func betweenDates(from: Date, to:Date) -> AnyPublisher<[WeatherData]?,Never> {
+        return dataSubject.map { data in
+            return data?.filter { $0.dateTimeRepresentation >= from && $0.dateTimeRepresentation <= to }
+        }.eraseToAnyPublisher()
     }
+    /// Data used for preview scenarios
     public static let previewData: [WeatherData] = [
         .init(dateTimeRepresentation: Date().addingTimeInterval(60),
               airPressure: 1018,
@@ -119,6 +162,7 @@ public class Weather : ObservableObject {
               latitude: 56.0014127,
               longitude: 12.7416203)
     ]
+    /// Instance used for preview scenarios
     public static let previewInstance:Weather = Weather(service: nil, previewData: true)
     
     /// Get the heat index adusted temperature
