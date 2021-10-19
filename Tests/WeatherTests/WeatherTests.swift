@@ -31,7 +31,7 @@ final class WeatherTests: XCTestCase {
     }
     func testHistoricalObservationValues() {
         let expectation = XCTestExpectation(description: "Fetch SMHI data")
-        SMHIObservations.publisher(forStation: "helsingborg", parameter: "7", period: "corrected-archive").sink(receiveCompletion: { compl in
+        SMHIObservations.publisher(forStation: "helsingborg", parameter: "7", period: "latest-months").sink(receiveCompletion: { compl in
             switch compl {
             case .failure(let error):
                 debugPrint(error)
@@ -103,5 +103,34 @@ final class WeatherTests: XCTestCase {
             expectation.fulfill()
         }.store(in: &cancellables)
         wait(for: [expectation], timeout: 10.0)
+    }
+    func testWeather() {
+        let expectation = XCTestExpectation(description: "Fetch SMHI observation data")
+        let service = SMHIForecastService()
+        let weather = Weather(service: service, fetchAutomatically:  true)
+        weather.coordinates = .init(latitude: 59.323840, longitude: 13.466290)
+        weather.latest.sink { data in
+            guard data != nil else {
+                return
+            }
+            expectation.fulfill()
+        }.store(in: &cancellables)
+        wait(for: [expectation], timeout: 10.0)
+    }
+    func testWeatherNonAutomatic() {
+        let expectation = XCTestExpectation(description: "Fetch SMHI observation data")
+        let service = SMHIForecastService()
+        let weather = Weather(service: service, fetchAutomatically:  false, previewData: true)
+        weather.coordinates = .init(latitude: 59.323840, longitude: 13.466290)
+        weather.latest.sink { data in
+            guard data != nil else {
+                return
+            }
+            XCTFail("should not complete")
+        }.store(in: &cancellables)
+        Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { timer in
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 5)
     }
 }
