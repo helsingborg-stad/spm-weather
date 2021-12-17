@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// Describes symbols related to a specific weather condition.
 public enum WeatherSymbol : String, Equatable {
     case clearSky
     case nearlyClearSky
@@ -35,6 +36,7 @@ public enum WeatherSymbol : String, Equatable {
     case lightSnowfall
     case moderateSnowfall
     case heavySnowfall
+    /// Emoji representation of the value
     public var emoji:String {
         switch self {
         case .clearSky: return "☀️"
@@ -66,6 +68,7 @@ public enum WeatherSymbol : String, Equatable {
         case .heavySnowfall: return "❄️"
         }
     }
+    /// SFSymbol representation of the value
     public var sfSymbol:String {
         switch self {
         case .clearSky: return "sub.max.fill"
@@ -98,6 +101,7 @@ public enum WeatherSymbol : String, Equatable {
         }
     }
 }
+/// Descibes a type of precipitation
 public enum WeatherPrecipitation : String, Equatable {
     case none
     case snow
@@ -106,6 +110,7 @@ public enum WeatherPrecipitation : String, Equatable {
     case drizzle
     case freezingRain
     case freezingDrizzle
+    /// Emoji representing the type of precipitation
     public var emoji:String {
         switch self {
         case .none: return ""
@@ -118,44 +123,93 @@ public enum WeatherPrecipitation : String, Equatable {
         }
     }
 }
+/// Data attatched to a specific point in time.
 public struct WeatherData : Equatable,Identifiable {
-    public struct Value {
-        var value:Any
-        var unit:String?
-    }
+    /// The id of the data
     public var id:String {
         "weather-at-\(dateTimeRepresentation)"
     }
+    /// Indicates whether or not the data is a forcast or not
     public let isForcast:Bool
+    /// The date and point in time of the data
     public let dateTimeRepresentation:Date
+    /// Air pressure in mbar
     public let airPressure:Double
+    /// Air temperature in celcius
     public let airTemperature:Double
+    /// Air temperature in celcius adjusted to heat index and wind chill effect
     public let airTemperatureFeelsLike:Double
+    /// Amount of horizontal visibilty in km
     public let horizontalVisibility:Double
     
+    /// Wind direction in degrees from north (0 to 359)
     public let windDirection:Double
+    /// Wind speed in m/s
     public let windSpeed:Double
+    /// Wind gust speed in m/s
     public let windGustSpeed:Double
     
+    /// Relative air humudity in % (0-100)
     public let relativeHumidity:Int
+    /// The probabiity of thunder in % (0-100=
     public let thunderProbability:Int
     
+    /// Mean value of total cloud cover
     public let totalCloudCover:Int
+    /// Mean value of low cloud cover
     public let lowLevelCloudCover:Int
+    /// Mean value of medium cloud cover
     public let mediumLevelCloudCover:Int
+    /// Mean value of high cloud cover
     public let highLevelCloudCover:Int
     
+    /// Minimum amount of precipitation in mm/h
     public let minPrecipitation:Double
+    /// Maximum amount of precipitation in mm/h
     public let maxPrecipitation:Double
+    /// Amount of frozen precipitation in % (0-100)
     public let frozenPrecipitationPercentage:Int
     
+    /// Mean precipitation intensity in mm/h
     public let meanPrecipitationIntensity:Double
+    /// Median precipitation intensity in mm/h
     public let medianPrecipitationIntensity:Double
     
+    /// Precipitation category
     public let precipitationCategory:WeatherPrecipitation
+    /// Symbol describing the weather
     public let symbol:WeatherSymbol
+    /// The latitude of the weather readings
     public let latitude:Double
+    /// The longitude of the weather readings
     public let longitude:Double
+    
+    /// Initializes a new WeatherData object
+    /// - Parameters:
+    ///   - isForcast: Indicates whether or not the data is a forcast or not
+    ///   - dateTimeRepresentation: The date and point in time of the data
+    ///   - airPressure: Air pressure in mbar
+    ///   - airTemperature: Air temperature in celcius
+    ///   - airTemperatureFeelsLike: Air temperature in celcius adjusted to heat index and wind chill effect
+    ///   - horizontalVisibility: Amount of horizontal visibilty in km
+    ///   - windDirection: Wind direction in degrees from north (0 to 359)
+    ///   - windSpeed: Wind speed in m/s
+    ///   - windGustSpeed: Wind gust speed in m/s
+    ///   - relativeHumidity: Relative air humudity in % (0-100)
+    ///   - thunderProbability: The probabiity of thunder in % (0-100=
+    ///   - totalCloudCover: Mean value of total cloud cover
+    ///   - lowLevelCloudCover: Mean value of low cloud cover
+    ///   - mediumLevelCloudCover: Mean value of medium cloud cover
+    ///   - highLevelCloudCover: Mean value of high cloud cover
+    ///   - minPrecipitation: Minimum amount of precipitation in mm/h
+    ///   - maxPrecipitation: Maximum amount of precipitation in mm/h
+    ///   - frozenPrecipitationPercentage: Amount of frozen precipitation in % (0-100)
+    ///   - meanPrecipitationIntensity: Mean precipitation intensity in mm/h
+    ///   - medianPrecipitationIntensity: Median precipitation intensity in mm/h
+    ///   - precipitationCategory: Precipitation category
+    ///   - symbol: Symbol describing the weather
+    ///   - latitude: The latitude of the weather readings
+    ///   - longitude: The longitude of the weather readings
     public init(
         isForcast:Bool = true,
         
