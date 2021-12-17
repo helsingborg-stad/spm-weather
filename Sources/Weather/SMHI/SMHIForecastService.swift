@@ -2,13 +2,23 @@ import Foundation
 import Combine
 import CoreLocation
 
+/// Used to fetch data from the SMHI forecast service.
 public class SMHIForecastService : WeatherService {
+    /// Initializes a new object
     public init () {
         
     }
+    /// Creates a url based on the provided coordinates
+    /// - Parameters:
+    ///   - lat: latitude
+    ///   - lon: longitude
+    /// - Returns: a url to the forcefast api
     func url(_ lat:Double,_ lon:Double) -> URL? {
         return URL(string: "https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/\(String(format: "%.6f", lon))/lat/\(String(format: "%.6f", lat))/data.json")
     }
+    /// Fetches forecast weather conditions from SMHI forecast api.
+    /// - Parameter coordinates: coordinates for the location of the forecast
+    /// - Returns: completion publisher
     public func fetch(using coordinates:Weather.Coordinates) -> AnyPublisher<[WeatherData],Error> {
         return fetchPublisher(latitude: coordinates.latitude, longitude: coordinates.longitude)
             .tryMap({ w in
@@ -21,6 +31,11 @@ public class SMHIForecastService : WeatherService {
             })
             .eraseToAnyPublisher()
     }
+    /// Fetches forecast weather conditions from SMHI forecast api. This method returns the unprocessed data from the api.
+    /// - Parameters:
+    ///   - latitude: latitude of the location
+    ///   - longitude: longitude of the location
+    /// - Returns: completion publisher
     public func fetchPublisher(latitude:Double, longitude:Double) -> AnyPublisher<SMHIForecast,Error> {
         let decoder = JSONDecoder()
         let formatter = DateFormatter()
@@ -36,9 +51,11 @@ public class SMHIForecastService : WeatherService {
     }
 }
 
+/// Errors used when theres a failure to fetch a specific parameter for the `WeatherService` protocol
 public enum SMHIWeatherDataMissingError : Error {
     case airPressure
     case airTemperature
+    case airTemperatureFeelsLike
     case horizontalVisibility
     case windDirection
     case windSpeed
@@ -57,11 +74,17 @@ public enum SMHIWeatherDataMissingError : Error {
     case medianPrecipitationIntensity
     case weatherSymbol
 }
+/// A representation of the weather data fetched from SMHI API
 public struct SMHIForecast : Codable {
+    /// Weather data connected to a point in time
     public struct TimeSeries : Codable {
+        /// The time and date
         public let validTime:Date
+        /// Parameters included
         public let parameters:[Parameter]
+        /// A parameter describing different types of meterological data
         public struct Parameter : Codable {
+            /// Parameter names
             public enum Name:String, Codable {
                 case airPressure = "msl"
                 case airTemperature = "t"
@@ -83,24 +106,17 @@ public struct SMHIForecast : Codable {
                 case medianPrecipitationIntensity = "pmedian"
                 case weatherSymbol = "Wsymb2"
             }
+            /// The name of the parameter
             let name:Name
+            /// Either Level above ground (HL) or Mean sea level (HMSL)
             let levelType:String
+            /// Level above or below level type
             let level:Int
+            /// Measurement unit
             let unit:String
+            /// All values related to the parameter
             let values:[Double]
-            var suffix:String? {
-                switch unit {
-                case "percent": return "%"
-                case "kg/m2/h": return "mm/h"
-                case "octas": return "%"
-                case "hPa": return "hPa"
-                case "Cel": return "°"
-                case "km": return "km"
-                case "degree": return ""
-                case "m/s": return "m/s"
-                default: return nil
-                }
-            }
+            /// Returns the actual value of the parameter
             var value:Any? {
                 guard let val = values.first else {
                     return nil
@@ -128,6 +144,7 @@ public struct SMHIForecast : Codable {
                 }
             }
         }
+        /// Returns the windchill and heat index adjusted temperature
         public var temperatureFeelsLike:Double? {
             guard let t = parameter(.airTemperature)?.value as? Double else {
                 return nil
@@ -137,21 +154,13 @@ public struct SMHIForecast : Codable {
             }
             return Weather.windChillAdjustedTemperature(temperature: Weather.heatIndexAdjustedTemperature(temperature: t, humidity: r), wind: v)
         }
-        public var heatIndex:Double? {
-            guard let t = parameter(.airTemperature)?.value as? Double, let r = parameter(.relativeHumidity)?.values.first else {
-                return nil
-            }
-            return Weather.heatIndexAdjustedTemperature(temperature: t, humidity: r)
-        }
-        public var effectiveTemperature:Double? {
-            guard let t = parameter(.airTemperature)?.value as? Double,let v = parameter(.windSpeed)?.values.first else {
-                return nil
-            }
-            return Weather.windChillAdjustedTemperature(temperature: t, wind: v)
-        }
+        /// Finds the available first parameter
+        /// - Parameter parameter: parameter to search for
+        /// - Returns: the parameter
         public func parameter(_ parameter:Parameter.Name) -> Parameter? {
             parameters.first { param in param.name == parameter }
         }
+        /// Symbol describing the weather
         var symbol:WeatherSymbol? {
             guard let s = self.parameter(.weatherSymbol)?.value as? Int else {
                 return nil
@@ -187,6 +196,7 @@ public struct SMHIForecast : Codable {
             default: return nil
             }
         }
+        /// Type of precipitation
         var precipitation:WeatherPrecipitation {
             guard let s = self.parameter(.precipitationCategory)?.value as? Int else {
                 return WeatherPrecipitation.none
@@ -202,6 +212,9 @@ public struct SMHIForecast : Codable {
             default: return WeatherPrecipitation.none
             }
         }
+        /// Converts the data to a WeatherData representation
+        /// - Parameter coordinates: The coordinates used when fetching the data
+        /// - Returns: WeatherData object
         func weatherDataRepresentation(using coordinates:Weather.Coordinates) throws -> WeatherData  {
             guard let airPressure = self.parameter(.airPressure)?.value as? Double else { throw SMHIWeatherDataMissingError.airPressure }
             guard let airTemperature = self.parameter(.airTemperature)?.value as? Double else { throw SMHIWeatherDataMissingError.airTemperature }
@@ -221,7 +234,7 @@ public struct SMHIForecast : Codable {
             guard let meanPrecipitationIntensity = self.parameter(.meanPrecipitationIntensity)?.value as? Double else { throw SMHIWeatherDataMissingError.meanPrecipitationIntensity }
             guard let medianPrecipitationIntensity = self.parameter(.medianPrecipitationIntensity)?.value as? Double else { throw SMHIWeatherDataMissingError.medianPrecipitationIntensity }
             guard let s = symbol else { throw SMHIWeatherDataMissingError.weatherSymbol }
-            guard let feelsLike = temperatureFeelsLike else { throw SMHIWeatherDataMissingError.weatherSymbol }
+            guard let feelsLike = temperatureFeelsLike else { throw SMHIWeatherDataMissingError.airTemperatureFeelsLike }
 
             return WeatherData(
                 dateTimeRepresentation: validTime,
@@ -250,12 +263,19 @@ public struct SMHIForecast : Codable {
             )
         }
     }
+    /// Information about the location
     public struct Geometry : Codable {
+        /// Type of coordinate, usually "Point"
         let type:String
+        /// Coordinates of the location
         let coordinates:[[Double]]
     }
+    /// Time of approval of the forecast, ie last update
     public let approvedTime:String
+    /// Missing documentation
     public let referenceTime:String
+    /// Information about the location of the data
     public let geometry:Geometry
+    /// Forecast meterological data based on a series of times and dates
     public let timeSeries: [TimeSeries]
 }
