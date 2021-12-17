@@ -6,6 +6,7 @@ Weather privides a common interface that supplies weather data form any service 
 ```swift
 let weather = Weather(service:MyWeatherService())
 
+/// The closest() method will provide you with data closest in time whenever it's available or if the underlying data changes.
 weather.closest().sink { data in 
     guard let data = data else {
         return
