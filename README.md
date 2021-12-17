@@ -16,10 +16,28 @@ weather.closest().sink { data in
 weather.coordinates = .init(latitude: 56.046411, longitude: 12.694454) 
 ```
 
+## SMHI
+The package includes an implementation of SMHI weather services.
+
+### Forecast
+`SMHIForecastService` is a concrete implementation of the weather service protocol.
+Simply add `SMHIForecastService()` as the service parameter in `Weather` and you're good to go.
+
+> More information on forecast data can be found here: https://opendata.smhi.se/apidocs/metfcst/index.html
+
+### Meterological observations
+The package also supports collecting information from SMHI observations service. However, since the SHMI backend does not support collecting mutliple parameters at once, it has **not yet been adapted** to the `WeatherService` protocol. Either way you can use it for fething data using the following functions:
+
+- `SMHIObservations.publisher(forStation:parameter:period:)`
+- `SMHIObservations.publisher(latitude:longitude:parameter:period:)`
+
+> More information on observation data can be found here: https://opendata.smhi.se/apidocs/metobs/index.html
+
+
 ## TODO
 
-- [ ] add list of services
+- [x] add list of services
 - [ ] code-documentation
 - [ ] make SMHIObservations WeatherService compatible
-- [ ] write tests
-- [ ] complete package documentation
+- [x] write tests
+- [x] complete package documentation
