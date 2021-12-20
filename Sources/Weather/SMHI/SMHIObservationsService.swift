@@ -13,6 +13,7 @@ import CoreLocation
 let baseUrlString = "https://opendata-download-metobs.smhi.se/api/version/1.0"
 let baseUrl = URL(string: baseUrlString)!
 
+/// Errors for various failrues occuring though the SMHI Observations api
 public enum SMHIObservationsErrors: Error {
     case unknown
     case missingResource
@@ -26,33 +27,53 @@ public enum SMHIObservationsErrors: Error {
     case invalidDateInCSV
 }
 
+/// Ussed for keeping track what of what field is being processed when decoding a CVS
 enum CurrentlyProcessingCSVField {
     case station
     case parameter
     case period
     case data
 }
+/// Stores cancellables
 var cancellables = Set<AnyCancellable>()
 
+/// Calls upon the [SMHI Meterological Observaion API](https://opendata.smhi.se/apidocs/metobs/index.html)
 public struct SMHIObservations {
+    /// Describes a link to a resource
     public struct Link : Codable,Equatable {
+        /// The relationship
         public let rel: String
+        /// The resource value type, for example "application/json"
         public let type: String
+        /// The resource URL
         public let href: URL
     }
+    /// Describes a rsource in the METOBS api
     public struct Resource: Codable, Equatable {
+        /// Describes a geographical bounding box
         public struct GeoBox: Codable, Equatable {
+            /// Minimum latitude
             public let minLatitude:Double
+            /// Minimum longitude
             public let minLongitude:Double
+            /// Maximum latitude
             public let maxLatitude:Double
+            /// Maximum longirude
             public let maxLongitude:Double
         }
+        /// Geographical bounding box of the resrouce
         public let geoBox:GeoBox
+        /// The key for the resource, typically an int
         public let key:String
+        /// Last update
         public let updated:Date
+        /// The name of the resource
         public let title:String
+        /// Summary, or descripting of the values the resource holds
         public let summary:String
+        /// Links to related assets
         public let link: [Link]
+        /// Fetch-publisher of the first available json link
         public var jsonPublisher: AnyPublisher<Parameter,Error>  {
             guard let l = link.first(where: { $0.type == "application/json"}) else {
                 return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
@@ -65,13 +86,21 @@ public struct SMHIObservations {
                 .eraseToAnyPublisher()
         }
     }
+    /// The root of the api
     public struct Service : Codable, Equatable {
+        /// The key or version used when fetching api values
         public let key:String
+        /// Last updated
         public let updated:Date
+        /// The title of the service
         public let title:String
+        /// Further description of the service
         public let summary:String
+        /// Links to related assets
         public let link: [Link]
+        /// Service resources
         public let resource: [Resource]
+        /// Fetch-publusher using the `baseUrlString` to call upon the api
         public static var jsonPublisher: AnyPublisher<Service,Error>  {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .millisecondsSince1970
@@ -84,23 +113,40 @@ public struct SMHIObservations {
                 .eraseToAnyPublisher()
         }
     }
+    /// Describes a weather station
     public struct Station : Codable, Equatable {
+        /// The name of the station
         public let name: String
+        /// The station owner, for exampel "SMHI"
         public let owner: String
+        /// The station owner category, for example "SMHI"
         public let ownerCategory: String
-        public let id: Double
+        /// The station id
+        public let id: Int
+        /// Height above sea level (probably meters?)
         public let height: Double
+        /// The center latitude of the station
         public let latitude: Double
+        /// The center longitude of the station
         public let longitude: Double
+        /// Describes whether or not the station is active
         public let active: Bool
+        /// Active from data
         public let from: Date
+        /// Active to data
         public let to: Date
+        /// The key for the station, typically a string representation of the id
         public let key: String
+        /// Last updated
         public let updated: Date
+        /// Usually the same as the resource title
         public let title: String
+        /// A summary for the station
         public let summary: String
+        /// Links to related assets
         public let link: [Link]
-        public var jsonPublisher: AnyPublisher<ParamaterDetails,Error>  {
+        /// Fetch-publisher of the first available json link.
+        public var jsonPublisher: AnyPublisher<StationParameter,Error>  {
             guard let l = link.first(where: { $0.type == "application/json"}) else {
                 return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
             }
@@ -108,25 +154,42 @@ public struct SMHIObservations {
             decoder.dateDecodingStrategy = .millisecondsSince1970
             return URLSession.shared.dataTaskPublisher(for: l.href)
                 .tryMap {$0.data}
-                .decode(type: ParamaterDetails.self, decoder: decoder)
+                .decode(type: StationParameter.self, decoder: decoder)
                 .eraseToAnyPublisher()
         }
+        /// `CLLocation` representation of the station coordinates
         public var location:CLLocation {
             return CLLocation(latitude: latitude, longitude: longitude)
         }
     }
+    /// Describes a meterological parameter
     public struct Parameter : Codable, Equatable {
+        /// The key for the parameter
         public let key:String
+        /// Last updated
         public let updated:Date
+        /// Title describing the parameter
         public let title:String
+        /// Futher description of the parameter properties
         public let summary:String
+        /// The type of expected value
         public let valueType:String
+        /// Available stations
         public let station:[Station]
+        /// Station sets
         public let stationSet:[StationSet]?
+        /// Returns the closest station by geolocation
+        /// - Parameters:
+        ///   - latitude: desired latitude
+        ///   - longitude: desired longitude
+        /// - Returns: closest station provided location
         public func closestStationFor(latitude:Double, longitude:Double) -> Station? {
             let loc = CLLocation(latitude: latitude, longitude: longitude)
             return station.filter { $0.active == true }.min(by: { loc.distance(from: $0.location) < loc.distance(from: $1.location) })
         }
+        /// Returns a fetch publisher for a paremter with key
+        /// - Parameter key: the key of the parameter
+        /// - Returns: network-publisher
         public func publisher(for key:String) -> AnyPublisher<Parameter,Error>  {
             let u = baseUrl.appendingPathComponent("parameter").appendingPathComponent("\(key).json")
             let decoder = JSONDecoder()
@@ -137,29 +200,49 @@ public struct SMHIObservations {
                 .eraseToAnyPublisher()
         }
     }
+    /// Describes a set of stations with related data summary
     public struct StationSet:Codable,Equatable {
+        /// The key for the station set
         public let key:String
+        /// Last updated
         public let updated:Date
+        /// The title of the station set
         public let title:String
+        /// Further description of the station set
         public let summary:String
+        /// Links to related assets
         public let link:[Link]
     }
+    /// Describes the position of a station parameter
     public struct Position: Codable, Equatable {
+        /// Data availabity start
         public let from:Date
+        /// Data availabity end
         public let to:Date
+        /// Height above sea level (meters?)
         public let height:Double
+        /// The latitude of the station parameter
         public let latitude:Double
+        /// The longitude of the station parameter
         public let longitude:Double
+        /// `CLLocation` representation of the coordinates
         public var location:CLLocation {
             return CLLocation(latitude: latitude, longitude: longitude)
         }
     }
+    /// Describes a period for data
     public struct Period: Codable, Equatable {
+        /// The key for the period, used to fetch data from the api
         public let key:String
+        /// Last updated
         public let updated:Date
+        /// The title for the period
         public let title:String
+        /// Further description of the period
         public let summary:String
+        /// Links to related assets
         public let link:[Link]
+        /// Fech-publisher for the first available json link
         public var jsonPublisher: AnyPublisher<PeriodDetails,Error>  {
             guard let l = link.first(where: { $0.type == "application/json"}) else {
                 return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
@@ -172,22 +255,38 @@ public struct SMHIObservations {
                 .eraseToAnyPublisher()
         }
     }
+    /// Details about a period.
     public struct PeriodDetails: Codable, Equatable {
+        /// The key of te period details
         public let key:String
+        /// Last updated
         public let updated:Date
+        /// The title of the period details
         public let title:String
+        /// Further description of the period details
         public let summary:String
+        /// First availble data
         public let from:Date
+        /// Most recent availble data
         public let to:Date
+        /// Links to related assets
         public let link:[Link]
+        /// Fetch-publisher of the first available json link.
         public let data:[PeriodData]
     }
+    /// Describes the link to the actual parameter data
     public struct PeriodData: Codable, Equatable {
+        /// The key for the data
         public let key:String?
+        /// Last updated
         public let updated:Date
+        /// The title of the data
         public let title:String
+        /// Further description of the data
         public let summary:String
+        /// Links to related assets
         public let link: [Link]
+        /// Fetch-publisher of the first available json link.
         public var jsonPublisher: AnyPublisher<Value,Error>  {
             guard let l = link.first(where: { $0.type == "application/json"}) else {
                 return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
@@ -200,6 +299,7 @@ public struct SMHIObservations {
             
                 .eraseToAnyPublisher()
         }
+        /// Returns an appropriate fetch-publisher depending on avaiable link data, either JSON or CSV.
         public var fetchPublisher : AnyPublisher<Value,Error>  {
             if link.contains(where: { $0.type == "application/json"}) {
                 return jsonPublisher
@@ -209,6 +309,7 @@ public struct SMHIObservations {
             }
             return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
         }
+        /// Fetch-publisher of the first available csv link.
         public var csvPublisher: AnyPublisher<Value,Error>  {
             guard let l = link.first(where: { $0.type == "text/plain"}) else {
                 return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
@@ -225,54 +326,101 @@ public struct SMHIObservations {
                 .eraseToAnyPublisher()
         }
     }
-    public struct ParamaterDetails: Codable, Equatable {
+    /// Describes a stations parameter
+    public struct StationParameter: Codable, Equatable {
+        /// The parameter key
         public let key:String
+        /// Last updated
         public let updated:Date
+        /// The title of the parameter
         public let title:String
+        /// The owner of the station
         public let owner:String
+        /// The owner category of the station
         public let ownerCategory:String
+        /// Whether or not the parameter/station is active
         public let active:Bool
+        /// Further description of the parameter/station
         public let summary:String
-        public let from:Int
-        public let to:Int
+        /// Data availability start
+        public let from:Date
+        /// Data availability end
+        public let to:Date
+        /// The position of the parameter/station
         public let position:[Position]
+        /// The available pariods for the parameter/station
         public let period:[Period]
+        /// Links to related assets
         public let link:[Link]
     }
+    /// The value form a stations parameter period
     public struct Value: Codable, Equatable {
+        /// Meterological data
         public struct ValueData: Codable, Equatable {
+            /// Date of data
             public let date:Date
+            /// The actual value
             public let value:String
+            /// The quality of the data, either G (green), Y (yellow), R (red)
             public let quality:String
         }
+        /// The related parameter
         public struct ValueParameter: Codable, Equatable {
+            /// The parameter key
             public let key:String
+            /// The parameter name
             public let name:String
+            /// Summary further descirbing the parameter
             public let summary:String
+            /// Unit of measure
             public let unit:String
         }
+        /// The related station
         public struct ValueStation: Codable, Equatable {
+            /// The station key
             public let key:String
+            /// The station name
             public let name:String
+            /// The owner of the station
             public let owner:String
+            /// The owner category of the station
             public let ownerCategory:String
+            /// Height above sea level (probably meters?)
             public let height:Double
         }
+        /// The realted period
         public struct ValuePeriod: Codable, Equatable {
+            /// The period key
             public let key:String
+            /// Period start
             public let from:Date
+            /// Period end
             public let to:Date
+            /// Further description of the period
             public let summary:String
+            /// How often samples are taken, for example every 15 minutes
             public let sampling:String
         }
+        /// The data
         public let value:[ValueData]
+        /// Last updated
         public let updated:Date
+        /// Related parameter
         public let parameter:ValueParameter
+        /// Related station
         public let station:ValueStation
+        /// Related period
         public let period:ValuePeriod
+        /// Value positions
         public let position:[Position]
+        /// Links to related assets
         public let link:[Link]
     }
+    /// Processes a csv and returns a value object
+    /// - Parameters:
+    ///   - string: the csv string
+    ///   - link: the originating link
+    /// - Returns: processed value
     public static func process(csv string:String,link:Link) throws -> Value {
         var processing:CurrentlyProcessingCSVField?
         var final = [Value.ValueData]()
@@ -350,15 +498,19 @@ public struct SMHIObservations {
         }
         return Value.init(value: final, updated: per.to, parameter: par, station: sta, period: per, position: [pos], link: [link])
     }
-
+    // Holds the descriptions for meterological conditions
     public struct ConditionCodeDescription {
+        /// Shared instance
         static let shared = ConditionCodeDescription()
+        /// Dictionary of keys and values
         private let dict:[String:String]
+        /// Subscript returning the description of a code/`key`
         static subscript(key: String) -> String? {
             get {
                 shared.dict[key]
             }
         }
+        /// Initializes the `dict`
         private init() {
             var dict = [String:String]()
             dict["0"] = "Molnens utveckling har icke kunnat observeras eller icke observerats"
@@ -618,6 +770,12 @@ public struct SMHIObservations {
             self.dict = dict
         }
     }
+    /// Returns a `Value` publisher for a specific station,parameter and period
+    /// - Parameters:
+    ///   - station: the selected station
+    ///   - key: the selected parameter key
+    ///   - period: the selected period
+    /// - Returns: `Value` publisher
     public static func publisher(forStation station:String, parameter key:String, period:String)  -> AnyPublisher<Value,Error> {
         return Service.jsonPublisher
             .tryMap({ p -> Resource  in
@@ -650,6 +808,13 @@ public struct SMHIObservations {
             .flatMap { $0.fetchPublisher}
             .eraseToAnyPublisher()
     }
+    /// Returns a `Value` publisher for the closes station to given location, a parameter and a period.
+    /// - Parameters:
+    ///   - latitude: the latitude of the desired position
+    ///   - longitude: the longitude of the desired position
+    ///   - key: the selected parameter key
+    ///   - period: the selected period
+    /// - Returns: `Value` publisher
     public static func publisher(latitude:Double, longitude:Double, parameter key:String, period:String) -> AnyPublisher<Value,Error> {
         return Service.jsonPublisher
             .tryMap({ p -> Resource  in
@@ -682,6 +847,7 @@ public struct SMHIObservations {
             .flatMap { $0.fetchPublisher}
             .eraseToAnyPublisher()
     }
+    /// Returns the `Service.jsonPublisher`
     public static var publisher:AnyPublisher<Service,Error> {
         return Service.jsonPublisher
     }

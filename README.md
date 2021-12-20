@@ -17,6 +17,12 @@ weather.closest().sink { data in
 weather.coordinates = .init(latitude: 56.046411, longitude: 12.694454) 
 ```
 
+The weather framework also contains some usful functions for processing meterological values, such as:
+
+- `Weather.heatIndexAdjustedTemperature(temperature:humidity:)`
+- `Weather.windChillAdjustedTemperature(temperature:wind:)`
+- `Weather.dewPointAdjustedTemperature(humidity:temperature:)`
+
 ## SMHI
 The package includes an implementation of SMHI weather services.
 
@@ -38,7 +44,7 @@ The package also supports collecting information from SMHI observations service.
 ## TODO
 
 - [x] add list of services
-- [ ] code-documentation
+- [x] code-documentation
 - [ ] make SMHIObservations WeatherService compatible
 - [x] write tests
 - [x] complete package documentation
