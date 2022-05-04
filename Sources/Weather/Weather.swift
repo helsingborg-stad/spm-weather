@@ -37,7 +37,7 @@ public class Weather : ObservableObject {
                 return
             }
             if fetchAutomatically {
-                self.fetch()
+                fetch(force:true)
             }
         }
     }
@@ -48,7 +48,7 @@ public class Weather : ObservableObject {
         didSet {
             if oldValue != coordinates {
                 if fetchAutomatically {
-                    fetch()
+                    fetch(force:true)
                 }
             }
         }
