@@ -1,5 +1,9 @@
 # Weather
 
+## DEPRECATED
+Package will not recieve any updates, please use the Weather library in https://github.com/helsingborg-stad/spm-daisy instead.
+
+## About
 Weather privides a common interface that supplies weather data form any service implementing the `WeatherService` protocol. 
 
 ## Usage
